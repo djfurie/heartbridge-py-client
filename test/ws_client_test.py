@@ -1,11 +1,9 @@
 import pytest
 import logging
 import heartbridge
-import time
 import jwt
 import json
 import random
-import concurrent.futures
 import datetime
 import asyncio
 
@@ -55,9 +53,9 @@ def publisher(client, token):
 
 
 @pytest.fixture()
-async def client(url):
-    logging.debug("Connecting to %s", url)
-    c = heartbridge.Client(url)
+async def client(wsurl):
+    logging.debug("Connecting to %s", wsurl)
+    c = heartbridge.WSClient(wsurl)
     await c.connect()
     yield c
     logging.debug("Closing connection")
@@ -78,7 +76,7 @@ async def token(client):
 
 
 @pytest.mark.asyncio
-async def test_connect(client):
+async def test_ws_connect(client):
     assert client.is_connected
     logging.info("Connection established... closing connection")
     await client.close()
@@ -87,7 +85,7 @@ async def test_connect(client):
 
 
 @pytest.mark.asyncio
-async def test_invalid_action(client):
+async def test_ws_invalid_action(client):
     await client._ws.send(json.dumps({'action': 'bad-action'}))
     ret = await client.wait_for_data()
     logging.debug(ret)
@@ -98,7 +96,7 @@ async def test_invalid_action(client):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("bad_date", [datetime.datetime.now() - datetime.timedelta(minutes=6),
                                       datetime.datetime.now() + datetime.timedelta(days=367)])
-async def test_register_bad_date(client, bad_date):
+async def test_ws_register_bad_date(client, bad_date):
     ret = await client.register(artist=MOCK_ARTIST,
                                 title=MOCK_TITLE,
                                 performance_date=bad_date.timestamp())
@@ -107,7 +105,7 @@ async def test_register_bad_date(client, bad_date):
 
 
 @pytest.mark.asyncio
-async def test_register_bad_artist(client):
+async def test_ws_register_bad_artist(client):
     ret = await client.register(artist="A" * 65,
                                 title="B" * 65,
                                 performance_date=datetime.datetime.now().timestamp())
@@ -115,7 +113,7 @@ async def test_register_bad_artist(client):
     assert "error" in json.dumps(ret)
 
 
-def test_register(token):
+def test_ws_register(token):
     """ Register a performance - make sure that a token is returned """
 
     # Extract the Performance Id that was provided
@@ -135,7 +133,7 @@ def test_register(token):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("field,new_value", [('artist', 'DJFurioso'), ('title', 'A Fresh Title')])
-async def test_update(client, token, field, new_value):
+async def test_ws_update(client, token, field, new_value):
     """ Register a performance, then update information """
     performance_id = token['performance_id']
     logging.info("PerformanceID: %s", performance_id)
@@ -164,7 +162,7 @@ async def test_update(client, token, field, new_value):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("field,new_value",
                          [('artist', 'DJFurioso' * 65), ('token', 'ABC123456890'), ('performance_date', 0)])
-async def test_update_bad_values(client, token, field, new_value):
+async def test_ws_update_bad_values(client, token, field, new_value):
     """ Register a performance, then update information with bad values """
     performance_id = token['performance_id']
     logging.info("PerformanceID: %s", performance_id)
@@ -181,7 +179,7 @@ async def test_update_bad_values(client, token, field, new_value):
 
 
 @pytest.mark.asyncio
-async def test_publish(publisher: Publisher):
+async def test_ws_publish(publisher: Publisher):
     """ Test publishing heartrate """
 
     await publisher.start(interval=0.1)
@@ -190,7 +188,7 @@ async def test_publish(publisher: Publisher):
 
 
 @pytest.mark.asyncio
-async def test_bad_subscribe(client):
+async def test_ws_bad_subscribe(client):
     await client.subscribe("ABC1234")
     ret = await client.wait_for_data()
     p = json.loads(ret)
@@ -200,7 +198,7 @@ async def test_bad_subscribe(client):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('num_subscriptions', [1, 2, 10, 100])
-async def test_subscribe(publisher: Publisher, url, num_subscriptions):
+async def test_ws_subscribe(publisher: Publisher, wsurl, num_subscriptions):
     """
     This test is pretty bad right now.  There are all sorts of timing things that may break it
     It's a generally decent way to test basic functions in the server, but much better testing
@@ -209,7 +207,7 @@ async def test_subscribe(publisher: Publisher, url, num_subscriptions):
 
     # This is the main loop for subscribers.  This will need to run in a thread per subscriber
     # because there is no timeout mechanism for wait_for_data.
-    async def client_loop(tclient: heartbridge.Client):
+    async def client_loop(tclient: heartbridge.WSClient):
         num_rx = 0
         while True:
             logging.debug("Client: %s", tclient.connection_id)
@@ -231,8 +229,8 @@ async def test_subscribe(publisher: Publisher, url, num_subscriptions):
     clients = []
     for i in range(num_subscriptions):
         # Create the client
-        logging.debug("Connecting to: %s", url)
-        client = heartbridge.Client(url)
+        logging.debug("Connecting to: %s", wsurl)
+        client = heartbridge.WSClient(wsurl)
         await client.connect()
 
         # Subscribe to a performance

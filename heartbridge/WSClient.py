@@ -6,7 +6,7 @@ import websockets
 logger = logging.getLogger(__name__)
 
 
-class Client:
+class WSClient:
     def __init__(self, url):
         self._websocket_url = url
         self._ws: websockets.WebSocketClientProtocol = None

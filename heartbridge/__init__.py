@@ -1,1 +1,2 @@
-from heartbridge.Client import Client
+from heartbridge.WSClient import WSClient
+from heartbridge.RESTClient import RESTClient

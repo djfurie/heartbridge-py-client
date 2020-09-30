@@ -28,8 +28,8 @@ def main():
 
     args = parser.parse_args()
 
-    # c = heartbridge.Client("wss://heartbridge.furiousenterprises.net")
-    c = heartbridge.Client("ws://localhost:8000")
+    # c = heartbridge.WSClient("wss://heartbridge.furiousenterprises.net")
+    c = heartbridge.WSClient("ws://localhost:8000")
     listening = True
 
     if args.subscribe:
