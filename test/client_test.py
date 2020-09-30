@@ -190,6 +190,15 @@ async def test_publish(publisher: Publisher):
 
 
 @pytest.mark.asyncio
+async def test_bad_subscribe(client):
+    await client.subscribe("ABC1234")
+    ret = await client.wait_for_data()
+    p = json.loads(ret)
+    logging.debug(ret)
+    assert "error" in p, "Oops, we expected to get an error returned here"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize('num_subscriptions', [1, 2, 10, 100])
 async def test_subscribe(publisher: Publisher, url, num_subscriptions):
     """
