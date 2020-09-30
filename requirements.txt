@@ -1,0 +1,14 @@
+attrs==20.2.0
+-e git+git@github.com:djfurie/heartbridge-py-client.git@8b4d44ed0ea4a75b8a928ea4032173d3db664b3b#egg=heartbridge_py_client
+iniconfig==1.0.1
+packaging==20.4
+pkg-resources==0.0.0
+pluggy==0.13.1
+py==1.9.0
+PyJWT==1.7.1
+pyparsing==2.4.7
+pytest==6.1.0
+pytest-asyncio==0.14.0
+six==1.15.0
+toml==0.10.1
+websockets==8.1
