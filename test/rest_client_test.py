@@ -10,6 +10,8 @@ import asyncio
 # Some Mock performance information to be used for token generation and checking
 MOCK_ARTIST = "DJFury"
 MOCK_TITLE = "Dougie's Furry Beats"
+MOCK_EMAIL = "dougie.j.fleabottom@furiousenterprises.net"
+MOCK_DESCRIPTION = "The furriest beats in music right meow"
 
 
 @pytest.fixture()
@@ -26,7 +28,10 @@ async def token(client):
 
     # Get a token for right now
     ret_val = await client.register(artist=MOCK_ARTIST,
-                                    title=MOCK_TITLE)
+                                    title=MOCK_TITLE,
+                                    email=MOCK_EMAIL,
+                                    description=MOCK_DESCRIPTION,
+                                    duration=90)
 
     logging.debug("Returned payload: %s", ret_val)
     yield ret_val
@@ -38,7 +43,10 @@ async def token(client):
 async def test_rest_register_bad_date(client, bad_date):
     ret = await client.register(artist=MOCK_ARTIST,
                                 title=MOCK_TITLE,
-                                performance_date=bad_date.timestamp())
+                                performance_date=bad_date.timestamp(),
+                                email=MOCK_EMAIL,
+                                description=MOCK_DESCRIPTION,
+                                duration=90)
     logging.debug(ret)
     assert "error" in json.dumps(ret)
 
@@ -47,6 +55,9 @@ async def test_rest_register_bad_date(client, bad_date):
 async def test_rest_register_bad_artist(client):
     ret = await client.register(artist="A" * 65,
                                 title="B" * 65,
+                                email=MOCK_EMAIL,
+                                description=MOCK_DESCRIPTION,
+                                duration=90,
                                 performance_date=datetime.datetime.now().timestamp())
     logging.debug(ret)
     assert "error" in json.dumps(ret)
@@ -68,6 +79,8 @@ def test_rest_register(token):
 
     assert token_claims['artist'] == MOCK_ARTIST
     assert token_claims['title'] == MOCK_TITLE
+    assert token_claims['email'] == MOCK_EMAIL
+    assert token_claims['description'] == MOCK_DESCRIPTION
 
 
 @pytest.mark.asyncio

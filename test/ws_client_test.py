@@ -197,17 +197,13 @@ async def test_ws_bad_subscribe(client):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('num_subscriptions', [1, 2, 10, 100])
+@pytest.mark.parametrize('num_subscriptions', [1, 2, 10, 100, 1000])
 async def test_ws_subscribe(publisher: Publisher, wsurl, num_subscriptions):
-    """
-    This test is pretty bad right now.  There are all sorts of timing things that may break it
-    It's a generally decent way to test basic functions in the server, but much better testing
-    should be devised if we really need to stress test and reliability test this thing
-    """
+    # This is the main loop for subscribers
+    async def client_loop(tclient: heartbridge.WSClient, performance_id: str):
+        await tclient.connect()
+        await tclient.subscribe(performance_id)
 
-    # This is the main loop for subscribers.  This will need to run in a thread per subscriber
-    # because there is no timeout mechanism for wait_for_data.
-    async def client_loop(tclient: heartbridge.WSClient):
         num_rx = 0
         while True:
             logging.debug("Client: %s", tclient.connection_id)
@@ -231,19 +227,16 @@ async def test_ws_subscribe(publisher: Publisher, wsurl, num_subscriptions):
         # Create the client
         logging.debug("Connecting to: %s", wsurl)
         client = heartbridge.WSClient(wsurl)
-        await client.connect()
-
-        # Subscribe to a performance
-        await client.subscribe(publisher.performance_id)
 
         # Submit the client run loop to the thread pool
-        t = asyncio.create_task(client_loop(client))
+        t = asyncio.create_task(client_loop(client, publisher.performance_id))
 
         # Store it
         clients.append((client, t))
 
     # Start the publisher
-    await publisher.start(interval=1)
+    await asyncio.sleep(1)
+    await publisher.start(interval=1.0)
 
     # After a certain number of events, have the publisher stop
     while True:
@@ -252,6 +245,7 @@ async def test_ws_subscribe(publisher: Publisher, wsurl, num_subscriptions):
             break
 
     await publisher.stop()
+    await asyncio.sleep(1)
 
     # Shutdown each subscriber connection (which will terminate their thread) and gather up the results
     total_num_rx = 0

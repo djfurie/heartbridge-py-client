@@ -16,14 +16,19 @@ class RESTClient:
         async with self._session.post(self._base_url + "/" + endpoint, data=data) as resp:
             return await resp.json()
 
-    async def register(self, artist: str, title: str, performance_date: int = int(datetime.datetime.now().timestamp())):
+    async def register(self, artist: str, title: str, email: str, description: str, duration: int,
+                       performance_date: int = int(datetime.datetime.now().timestamp())):
         logger.info("Requesting token for time %d", performance_date)
 
         return await self._post("register", json.dumps({
             'action': 'register',
             'artist': artist,
             'title': title,
-            'performance_date': performance_date}))
+            'performance_date': performance_date,
+            'description': description,
+            'email': email,
+            'duration': duration
+        }))
 
     async def update(self, token, updated_info):
         cmd_json = {
