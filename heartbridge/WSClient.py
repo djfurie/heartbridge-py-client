@@ -27,7 +27,8 @@ class WSClient:
         self._ws = await websockets.connect(self._websocket_url)
 
     async def close(self):
-        await self._ws.close()
+        if self._ws:
+            await self._ws.close()
 
     async def subscribe(self, performance_id):
         logger.info("Subscribing to Performance ID: %s", performance_id)

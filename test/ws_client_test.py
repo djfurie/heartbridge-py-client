@@ -13,8 +13,8 @@ MOCK_TITLE = "Dougie's Furry Beats"
 
 
 class Publisher:
-    def __init__(self, client, token):
-        self.client = client
+    def __init__(self, client: heartbridge.WSClient, token):
+        self.client: heartbridge.WSClient = client
         self.token = token['token']
         self.performance_id = token['performance_id']
         self._interval = 1.0
@@ -53,7 +53,7 @@ def publisher(client, token):
 
 
 @pytest.fixture()
-async def client(wsurl):
+async def client(wsurl) -> heartbridge.WSClient:
     logging.debug("Connecting to %s", wsurl)
     c = heartbridge.WSClient(wsurl)
     await c.connect()
@@ -197,6 +197,39 @@ async def test_ws_bad_subscribe(client):
 
 
 @pytest.mark.asyncio
+async def test_ws_publish_before_nbf(client: heartbridge.WSClient, token):
+    """ Test publishing heartrate before the start time of the performance """
+    token = token['token']
+
+    # Update the token so that it is only valid starting tomorrow
+    new_performance_time = datetime.datetime.now() + datetime.timedelta(days=1)
+    ret_val = await client.update(token, {'performance_date': new_performance_time.timestamp()})
+    token = json.loads(ret_val)['token']
+
+    # Attempt to publish a heartrate
+    await client.publish(token, 100)
+
+    # Ensure that an error message was returned
+    ret_val = await client.wait_for_data()
+    p = json.loads(ret_val)
+    assert "error" in p, "Oops, we expected to get an error returned here"
+
+
+@pytest.mark.asyncio
+async def test_ws_publish_to_disconnected_sub(publisher: Publisher, wsurl: str):
+    client = heartbridge.WSClient(wsurl)
+    await client.connect()
+    await client.subscribe(publisher.performance_id)
+
+    await publisher.start(0.1)
+    await asyncio.sleep(1.0)
+    await client.close()
+    await asyncio.sleep(1.0)
+
+    await publisher.stop()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize('num_subscriptions', [1, 2, 10, 100, 1000])
 async def test_ws_subscribe(publisher: Publisher, wsurl, num_subscriptions):
     # This is the main loop for subscribers
@@ -209,13 +242,12 @@ async def test_ws_subscribe(publisher: Publisher, wsurl, num_subscriptions):
             logging.debug("Client: %s", tclient.connection_id)
             try:
                 ret = await tclient.wait_for_data()
-                logging.debug(ret)
                 p = json.loads(ret)
-                if 'heartrate' in p:
-                    logging.debug("Client: %s -- Got heart rate update: %s", client.connection_id, ret)
+                if p['action'] == "heartrate_update":
+                    logging.debug("Client: %s -- Got heart rate update: %s", tclient.connection_id, p["heartrate"])
                     num_rx += 1
-                if 'active_subcriptions' in p:
-                    logging.debug("Client: %s -- Active Subcriptions: %s", client.connection_id, ret)
+                if p["action"] == "subscriber_count_update":
+                    logging.debug("Client: %s -- Active Subcriptions: %s", tclient.connection_id, p["active_subscriptions"])
             except Exception:
                 # Capture any exception and use that to return here.  The expectation is that we will
                 # get a socket closed exception when the main test body closes all of the connections down
