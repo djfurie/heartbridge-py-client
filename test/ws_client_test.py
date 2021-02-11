@@ -15,8 +15,8 @@ MOCK_TITLE = "Dougie's Furry Beats"
 class Publisher:
     def __init__(self, client: heartbridge.WSClient, token):
         self.client: heartbridge.WSClient = client
-        self.token = token['token']
-        self.performance_id = token['performance_id']
+        self.token = token["token"]
+        self.performance_id = token["performance_id"]
         self._interval = 1.0
         self._running = False
         self.total_events_published = 0
@@ -67,9 +67,7 @@ async def token(client):
     logging.debug("Requesting new token")
 
     # Get a token for right now
-    ret_val = await client.register(artist=MOCK_ARTIST,
-                                    title=MOCK_TITLE,
-                                    duration=1)
+    ret_val = await client.register(artist=MOCK_ARTIST, title=MOCK_TITLE, duration=1)
 
     logging.debug("Returned payload: %s", ret_val)
     p = json.loads(ret_val)
@@ -87,7 +85,7 @@ async def test_ws_connect(client):
 
 @pytest.mark.asyncio
 async def test_ws_invalid_action(client):
-    await client._ws.send(json.dumps({'action': 'bad-action'}))
+    await client._ws.send(json.dumps({"action": "bad-action"}))
     ret = await client.wait_for_data()
     logging.debug(ret)
 
@@ -95,23 +93,32 @@ async def test_ws_invalid_action(client):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("bad_date", [datetime.datetime.now() - datetime.timedelta(minutes=6),
-                                      datetime.datetime.now() + datetime.timedelta(days=367)])
+@pytest.mark.parametrize(
+    "bad_date",
+    [
+        datetime.datetime.now() - datetime.timedelta(minutes=6),
+        datetime.datetime.now() + datetime.timedelta(days=367),
+    ],
+)
 async def test_ws_register_bad_date(client, bad_date):
-    ret = await client.register(artist=MOCK_ARTIST,
-                                title=MOCK_TITLE,
-                                performance_date=bad_date.timestamp(),
-                                duration=1)
+    ret = await client.register(
+        artist=MOCK_ARTIST,
+        title=MOCK_TITLE,
+        performance_date=bad_date.timestamp(),
+        duration=1,
+    )
     logging.debug(ret)
     assert "error" in json.dumps(ret)
 
 
 @pytest.mark.asyncio
 async def test_ws_register_bad_artist(client):
-    ret = await client.register(artist="A" * 65,
-                                title="B" * 65,
-                                performance_date=datetime.datetime.now().timestamp(),
-                                duration=1)
+    ret = await client.register(
+        artist="A" * 65,
+        title="B" * 65,
+        performance_date=datetime.datetime.now().timestamp(),
+        duration=1,
+    )
     logging.debug(ret)
     assert "error" in json.dumps(ret)
 
@@ -120,32 +127,34 @@ def test_ws_register(token):
     """ Register a performance - make sure that a token is returned """
 
     # Extract the Performance Id that was provided
-    performance_id = token['performance_id']
+    performance_id = token["performance_id"]
     logging.info("PerformanceID: %s", performance_id)
 
     # Performance Ids are expected to be 6 characters long
     assert len(performance_id) == 6
 
     # Decode the token
-    token_claims = jwt.decode(token['token'], verify=False)
+    token_claims = jwt.decode(token["token"], verify=False)
     logging.debug(token_claims)
 
-    assert token_claims['artist'] == MOCK_ARTIST
-    assert token_claims['title'] == MOCK_TITLE
+    assert token_claims["artist"] == MOCK_ARTIST
+    assert token_claims["title"] == MOCK_TITLE
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("field,new_value", [('artist', 'DJFurioso'), ('title', 'A Fresh Title')])
+@pytest.mark.parametrize(
+    "field,new_value", [("artist", "DJFurioso"), ("title", "A Fresh Title")]
+)
 async def test_ws_update(client, token, field, new_value):
     """ Register a performance, then update information """
-    performance_id = token['performance_id']
+    performance_id = token["performance_id"]
     logging.info("PerformanceID: %s", performance_id)
 
-    orig_token_claims = jwt.decode(token['token'], verify=False)
+    orig_token_claims = jwt.decode(token["token"], verify=False)
     logging.debug(orig_token_claims)
 
     # Update the field information
-    ret_val = await client.update(token['token'], {field: new_value})
+    ret_val = await client.update(token["token"], {field: new_value})
     p = json.loads(ret_val)
 
     # Make sure an error wasn't returned
@@ -154,27 +163,29 @@ async def test_ws_update(client, token, field, new_value):
         assert False
 
     # Check to make sure the performance id has remained the same
-    assert p['performance_id'] == performance_id
+    assert p["performance_id"] == performance_id
 
     # Check to make sure the new artist information is in the new token
-    new_token_claims = jwt.decode(p['token'], verify=False)
+    new_token_claims = jwt.decode(p["token"], verify=False)
     logging.debug(new_token_claims)
     assert new_token_claims[field] == new_value
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("field,new_value",
-                         [('artist', 'DJFurioso' * 65), ('token', 'ABC123456890'), ('performance_date', 0)])
+@pytest.mark.parametrize(
+    "field,new_value",
+    [("artist", "DJFurioso" * 65), ("token", "ABC123456890"), ("performance_date", 0)],
+)
 async def test_ws_update_bad_values(client, token, field, new_value):
     """ Register a performance, then update information with bad values """
-    performance_id = token['performance_id']
+    performance_id = token["performance_id"]
     logging.info("PerformanceID: %s", performance_id)
 
-    orig_token_claims = jwt.decode(token['token'], verify=False)
+    orig_token_claims = jwt.decode(token["token"], verify=False)
     logging.debug(orig_token_claims)
 
     # Update the field information
-    ret_val = await client.update(token['token'], {field: new_value})
+    ret_val = await client.update(token["token"], {field: new_value})
     p = json.loads(ret_val)
 
     # Make sure an error was returned
@@ -202,12 +213,14 @@ async def test_ws_bad_subscribe(client):
 @pytest.mark.asyncio
 async def test_ws_publish_before_nbf(client: heartbridge.WSClient, token):
     """ Test publishing heartrate before the start time of the performance """
-    token = token['token']
+    token = token["token"]
 
     # Update the token so that it is only valid starting tomorrow
     new_performance_time = datetime.datetime.now() + datetime.timedelta(days=1)
-    ret_val = await client.update(token, {'performance_date': new_performance_time.timestamp()})
-    token = json.loads(ret_val)['token']
+    ret_val = await client.update(
+        token, {"performance_date": new_performance_time.timestamp()}
+    )
+    token = json.loads(ret_val)["token"]
 
     # Attempt to publish a heartrate
     await client.publish(token, 100)
@@ -245,7 +258,7 @@ async def test_ws_publish_to_disconnected_sub(publisher: Publisher, wsurl: str):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('num_subscriptions', [1, 2, 10, 100, 1000])
+@pytest.mark.parametrize("num_subscriptions", [1, 2, 10, 100, 1000])
 async def test_ws_subscribe(publisher: Publisher, wsurl, num_subscriptions):
     # This is the main loop for subscribers
     async def client_loop(tclient: heartbridge.WSClient, performance_id: str):
@@ -258,12 +271,19 @@ async def test_ws_subscribe(publisher: Publisher, wsurl, num_subscriptions):
             try:
                 ret = await tclient.wait_for_data()
                 p = json.loads(ret)
-                if p['action'] == "heartrate_update":
-                    logging.debug("Client: %s -- Got heart rate update: %s", tclient.connection_id, p["heartrate"])
+                if p["action"] == "heartrate_update":
+                    logging.debug(
+                        "Client: %s -- Got heart rate update: %s",
+                        tclient.connection_id,
+                        p["heartrate"],
+                    )
                     num_rx += 1
                 if p["action"] == "subscriber_count_update":
-                    logging.debug("Client: %s -- Active Subcriptions: %s", tclient.connection_id,
-                                  p["active_subscriptions"])
+                    logging.debug(
+                        "Client: %s -- Active Subcriptions: %s",
+                        tclient.connection_id,
+                        p["active_subscriptions"],
+                    )
                     sub_cnt = int(p["active_subscriptions"])
                     if sub_cnt > max_subs:
                         max_subs = sub_cnt

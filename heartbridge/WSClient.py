@@ -20,7 +20,7 @@ class WSClient:
 
     @property
     def connection_id(self):
-        return self._ws.request_headers['Sec-WebSocket-Key']
+        return self._ws.request_headers["Sec-WebSocket-Key"]
 
     async def connect(self, url=None, max_retries=10):
         retry_count = 0
@@ -36,7 +36,9 @@ class WSClient:
                 if retry_count > max_retries:
                     raise e
                 # Back off on the retries
-                logger.warning("Exception: %s -- Retrying in %d seconds", e, retry_count)
+                logger.warning(
+                    "Exception: %s -- Retrying in %d seconds", e, retry_count
+                )
                 await asyncio.sleep(retry_count)
 
     async def close(self):
@@ -48,38 +50,41 @@ class WSClient:
 
     async def subscribe(self, performance_id):
         logger.info("Subscribing to Performance ID: %s", performance_id)
-        await self._ws.send(json.dumps({'action': 'subscribe',
-                                        'performance_id': performance_id}))
+        await self._ws.send(
+            json.dumps({"action": "subscribe", "performance_id": performance_id})
+        )
 
-    async def register(self, artist: str, title: str, performance_date: int = int(datetime.datetime.now().timestamp()),
-                       duration=90):
+    async def register(
+        self,
+        artist: str,
+        title: str,
+        performance_date: int = int(datetime.datetime.now().timestamp()),
+        duration=90,
+    ):
         logger.info("Requesting token for time %d", performance_date)
 
-        await self._ws.send(json.dumps({
-            'action': 'register',
-            'artist': artist,
-            'title': title,
-            'performance_date': performance_date,
-            'duration': duration
-        }))
+        await self._ws.send(
+            json.dumps(
+                {
+                    "action": "register",
+                    "artist": artist,
+                    "title": title,
+                    "performance_date": performance_date,
+                    "duration": duration,
+                }
+            )
+        )
 
         return await self._ws.recv()
 
     async def update(self, token, updated_info):
-        cmd_json = {
-            'action': 'update',
-            'token': token
-        }
+        cmd_json = {"action": "update", "token": token}
 
         await self._ws.send(json.dumps({**cmd_json, **updated_info}))
         return await self._ws.recv()
 
     async def publish(self, token, heartrate):
-        cmd_json = {
-            'action': 'publish',
-            'heartrate': heartrate,
-            'token': token
-        }
+        cmd_json = {"action": "publish", "heartrate": heartrate, "token": token}
 
         await self._ws.send(json.dumps(cmd_json))
 

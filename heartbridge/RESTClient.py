@@ -14,17 +14,24 @@ class RESTClient:
         self._session = aiohttp.ClientSession()
 
     async def _post(self, endpoint: str, data: str):
-        async with self._session.post(self._base_url + "/" + endpoint,
-                                      data=data) as resp:
+        async with self._session.post(
+            self._base_url + "/" + endpoint, data=data
+        ) as resp:
             return await resp.json()
 
     async def _get(self, endpoint: str):
         async with self._session.get(self._base_url + "/" + endpoint) as resp:
             return await resp.json()
 
-    async def register(self, artist: str, title: str, email: str, description: str,
-                       duration: int,
-                       performance_date: Union[int, str] = -1):
+    async def register(
+        self,
+        artist: str,
+        title: str,
+        email: str,
+        description: str,
+        duration: int,
+        performance_date: Union[int, str] = -1,
+    ):
 
         if type(performance_date) is int:
             if performance_date < 0:
@@ -33,21 +40,23 @@ class RESTClient:
         else:
             logger.info("Requesting token for time %s", performance_date)
 
-        return await self._post("register", json.dumps({
-            'action': 'register',
-            'artist': artist,
-            'title': title,
-            'performance_date': performance_date,
-            'description': description,
-            'email': email,
-            'duration': duration
-        }))
+        return await self._post(
+            "register",
+            json.dumps(
+                {
+                    "action": "register",
+                    "artist": artist,
+                    "title": title,
+                    "performance_date": performance_date,
+                    "description": description,
+                    "email": email,
+                    "duration": duration,
+                }
+            ),
+        )
 
     async def update(self, token, updated_info):
-        cmd_json = {
-            'action': 'update',
-            'token': token
-        }
+        cmd_json = {"action": "update", "token": token}
         merged_json = {**cmd_json, **updated_info}
         return await self._post("update", json.dumps(merged_json))
 
@@ -61,13 +70,13 @@ class RESTClient:
         return await self._get(f"events/{performance_id}/status")
 
     async def set_event_status(self, performance_id: str, token: str, status: str):
-        return await self._post(f"events/{performance_id}/status",
-                                json.dumps({"token": token, "status": status}))
+        return await self._post(
+            f"events/{performance_id}/status",
+            json.dumps({"token": token, "status": status}),
+        )
 
     async def delete_performance(self, token: str):
-        return await self._post("delete", json.dumps({
-            'token': token
-        }))
+        return await self._post("delete", json.dumps({"token": token}))
 
     async def close(self):
         await self._session.close()

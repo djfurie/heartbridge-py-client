@@ -6,7 +6,7 @@ import logging
 import signal
 import argparse
 
-LOGGING_FORMAT = '%(asctime)s :: %(name)s (%(levelname)s) -- %(message)s'
+LOGGING_FORMAT = "%(asctime)s :: %(name)s (%(levelname)s) -- %(message)s"
 logging.basicConfig(format=LOGGING_FORMAT, level=logging.DEBUG)
 
 listening = False
@@ -23,8 +23,13 @@ def main():
     signal.signal(signal.SIGINT, sigint_handler)
 
     parser = argparse.ArgumentParser(description="HeartBridge WebSocket API Client")
-    parser.add_argument('-s', '--subscribe', metavar="performance_id", type=str.upper,
-                        help="Subscribe to a given performance id")
+    parser.add_argument(
+        "-s",
+        "--subscribe",
+        metavar="performance_id",
+        type=str.upper,
+        help="Subscribe to a given performance id",
+    )
 
     args = parser.parse_args()
 
@@ -43,5 +48,5 @@ def main():
     c.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -7,5 +7,5 @@ setuptools.setup(
     author_email="dan.furie@gmail.com",
     description="Heartbridge WebSocket Client API",
     packages=setuptools.find_packages(),
-    python_requires=">=3.6"
+    python_requires=">=3.6",
 )
