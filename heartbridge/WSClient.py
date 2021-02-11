@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import logging
@@ -21,28 +22,46 @@ class WSClient:
     def connection_id(self):
         return self._ws.request_headers['Sec-WebSocket-Key']
 
-    async def connect(self, url=None):
+    async def connect(self, url=None, max_retries=10):
+        retry_count = 0
         if url:
             self._websocket_url = url
-        self._ws = await websockets.connect(self._websocket_url)
+
+        while True:
+            try:
+                self._ws = await websockets.connect(self._websocket_url)
+                return
+            except (websockets.InvalidStatusCode, ConnectionResetError) as e:
+                retry_count += 1
+                if retry_count > max_retries:
+                    raise e
+                # Back off on the retries
+                logger.warning("Exception: %s -- Retrying in %d seconds", e, retry_count)
+                await asyncio.sleep(retry_count)
 
     async def close(self):
         if self._ws:
-            await self._ws.close()
+            try:
+                await self._ws.close()
+            except RuntimeError:
+                pass  # Ignore runtime errors if the socket is getting shut down anyways
 
     async def subscribe(self, performance_id):
         logger.info("Subscribing to Performance ID: %s", performance_id)
         await self._ws.send(json.dumps({'action': 'subscribe',
                                         'performance_id': performance_id}))
 
-    async def register(self, artist: str, title: str, performance_date: int = int(datetime.datetime.now().timestamp())):
+    async def register(self, artist: str, title: str, performance_date: int = int(datetime.datetime.now().timestamp()),
+                       duration=90):
         logger.info("Requesting token for time %d", performance_date)
 
         await self._ws.send(json.dumps({
             'action': 'register',
             'artist': artist,
             'title': title,
-            'performance_date': performance_date}))
+            'performance_date': performance_date,
+            'duration': duration
+        }))
 
         return await self._ws.recv()
 

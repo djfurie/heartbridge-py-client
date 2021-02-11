@@ -68,7 +68,8 @@ async def token(client):
 
     # Get a token for right now
     ret_val = await client.register(artist=MOCK_ARTIST,
-                                    title=MOCK_TITLE)
+                                    title=MOCK_TITLE,
+                                    duration=1)
 
     logging.debug("Returned payload: %s", ret_val)
     p = json.loads(ret_val)
@@ -99,7 +100,8 @@ async def test_ws_invalid_action(client):
 async def test_ws_register_bad_date(client, bad_date):
     ret = await client.register(artist=MOCK_ARTIST,
                                 title=MOCK_TITLE,
-                                performance_date=bad_date.timestamp())
+                                performance_date=bad_date.timestamp(),
+                                duration=1)
     logging.debug(ret)
     assert "error" in json.dumps(ret)
 
@@ -108,7 +110,8 @@ async def test_ws_register_bad_date(client, bad_date):
 async def test_ws_register_bad_artist(client):
     ret = await client.register(artist="A" * 65,
                                 title="B" * 65,
-                                performance_date=datetime.datetime.now().timestamp())
+                                performance_date=datetime.datetime.now().timestamp(),
+                                duration=1)
     logging.debug(ret)
     assert "error" in json.dumps(ret)
 
@@ -216,6 +219,18 @@ async def test_ws_publish_before_nbf(client: heartbridge.WSClient, token):
 
 
 @pytest.mark.asyncio
+async def test_ws_publish_with_expired_token(client: heartbridge.WSClient):
+    """ Use an expired token and ensure an error is returned properly """
+    EXPIRED_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhcnRpc3QiOiJDcmlzdGkiLCJ0aXRsZSI6IlNob3ciLCJlbWFpbCI6bnVsbCwiZGVzY3JpcHRpb24iOm51bGwsImR1cmF0aW9uIjo5MCwibmJmIjoxNjA1MDEzNjIwLCJleHAiOjE2MDUwMjk4MjAsImlhdCI6MTYwNTAxNzEzOCwicGVyZm9ybWFuY2VfZGF0ZSI6MTYwNTAxNzIyMCwicGVyZm9ybWFuY2VfaWQiOiI5WUszQkIifQ.Cw9bgSZMg2_Q58N2-iMkXbODBrOdhO9qsgRK5XRdC94"
+
+    await client.publish(EXPIRED_TOKEN, 100)
+
+    ret_val = await client.wait_for_data()
+    p = json.loads(ret_val)
+    assert "error" in p, "Oops, we expected to get an error returned here"
+
+
+@pytest.mark.asyncio
 async def test_ws_publish_to_disconnected_sub(publisher: Publisher, wsurl: str):
     client = heartbridge.WSClient(wsurl)
     await client.connect()
@@ -234,10 +249,10 @@ async def test_ws_publish_to_disconnected_sub(publisher: Publisher, wsurl: str):
 async def test_ws_subscribe(publisher: Publisher, wsurl, num_subscriptions):
     # This is the main loop for subscribers
     async def client_loop(tclient: heartbridge.WSClient, performance_id: str):
-        await tclient.connect()
         await tclient.subscribe(performance_id)
 
         num_rx = 0
+        max_subs = 0
         while True:
             logging.debug("Client: %s", tclient.connection_id)
             try:
@@ -247,11 +262,16 @@ async def test_ws_subscribe(publisher: Publisher, wsurl, num_subscriptions):
                     logging.debug("Client: %s -- Got heart rate update: %s", tclient.connection_id, p["heartrate"])
                     num_rx += 1
                 if p["action"] == "subscriber_count_update":
-                    logging.debug("Client: %s -- Active Subcriptions: %s", tclient.connection_id, p["active_subscriptions"])
+                    logging.debug("Client: %s -- Active Subcriptions: %s", tclient.connection_id,
+                                  p["active_subscriptions"])
+                    sub_cnt = int(p["active_subscriptions"])
+                    if sub_cnt > max_subs:
+                        max_subs = sub_cnt
+
             except Exception:
                 # Capture any exception and use that to return here.  The expectation is that we will
                 # get a socket closed exception when the main test body closes all of the connections down
-                return num_rx
+                return num_rx, max_subs
 
     # Set up all of the subscribers...
     clients = []
@@ -259,6 +279,7 @@ async def test_ws_subscribe(publisher: Publisher, wsurl, num_subscriptions):
         # Create the client
         logging.debug("Connecting to: %s", wsurl)
         client = heartbridge.WSClient(wsurl)
+        await client.connect()
 
         # Submit the client run loop to the thread pool
         t = asyncio.create_task(client_loop(client, publisher.performance_id))
@@ -283,7 +304,8 @@ async def test_ws_subscribe(publisher: Publisher, wsurl, num_subscriptions):
     total_num_rx = 0
     for iclient, t in clients:
         await iclient.close()
-        result = await t
-        total_num_rx += result
+        num_rx, max_subs = await t
+        total_num_rx += num_rx
+        assert max_subs == num_subscriptions
 
     assert total_num_rx == publisher.total_events_published * num_subscriptions
